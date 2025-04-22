@@ -49,7 +49,7 @@ cart_logic/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/cart_logic.git
+git clone https://github.com/Anand-Singh1990/CartLogic.git
 cd cart_logic
 ```
 
