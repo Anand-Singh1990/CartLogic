@@ -15,25 +15,33 @@ This is a Django-based backend project to manage marketing campaigns, targeted u
 ---
 
 ## 📁 Project Structure
-
+<pre lang="bash">
 cart_logic/
-├── campaign/
-│   ├── migrations/
+├── campaign/                       # App to manage campaigns
+│   ├── init.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── constants.py                # All constants used across campaign models
 │   ├── management/
 │   │   └── commands/
-│   │       └── create_dummy_data.py
-│   ├── models.py
-│   ├── views.py
-│   └── …
-├── cart_logic/
+│   │       └── create_dummy_data.py  # Script to create dummy users & campaigns
+│   ├── migrations/
+│   │   └── init.py
+│   ├── models.py                   # Models like Campaign, CampaignCustomer, etc.
+│   ├── tests.py
+│   └── views.py
+│   └──
+├── cart_logic/                     # Project settings directory
+│   ├── init.py
+│   ├── asgi.py
 │   ├── settings.py
 │   ├── urls.py
-│   └── …
-├── manage.py
-├── db.sqlite3
-├── requirements.txt
-└── README.md
-
+│   └── wsgi.py
+├── db.sqlite3                      # SQLite database (if used)
+├── manage.py                       # Django management script
+├── requirements.txt                # Python dependencies
+└── README.md                       # Project documentation
+</pre>
 ---
 
 ## 🚀 Getting Started
