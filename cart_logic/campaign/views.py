@@ -119,9 +119,9 @@ class ApplyDiscountView(APIView):
 
 
 class AvailableCampaignsView(APIView):
-    def post(self, request):
+    def get(self, request):
         try:
-            serializer = AvailableCampaignRequestSerializer(data=request.data)
+            serializer = AvailableCampaignRequestSerializer(data=request.GET.dict())
             serializer.is_valid(raise_exception=True)
 
             customer_id = serializer.validated_data["customer_id"]
