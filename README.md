@@ -87,3 +87,4 @@ python manage.py runserver
 ```
 
 Access the admin panel at http://localhost:8000/admin
+Access the API Docs panel at http://localhost:8000/api-documentation/
