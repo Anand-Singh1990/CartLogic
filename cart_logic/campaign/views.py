@@ -8,6 +8,8 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from datetime import date
 from campaign.constants import StatusChoices
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .models import Campaign, DiscountApplication
 from .serializers import (
@@ -18,6 +20,7 @@ from .serializers import (
 )
 
 
+@swagger_auto_schema(request_body=CampaignSerializer)
 class CampaignViewSet(viewsets.ModelViewSet):
     queryset = Campaign.objects.all()
     serializer_class = CampaignSerializer
@@ -34,6 +37,12 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
 
 class ApplyDiscountView(APIView):
+
+    @swagger_auto_schema(request_body=ApplyDiscountSerializer,responses={
+        status.HTTP_200_OK: ApplyDiscountResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: 'No eligible campaigns found.',
+            status.HTTP_500_INTERNAL_SERVER_ERROR: 'An unexpected error occurred'
+    })
     def post(self, request):
         try:
             serializer = ApplyDiscountSerializer(data=request.data)
@@ -118,7 +127,19 @@ class ApplyDiscountView(APIView):
             )
 
 
+
 class AvailableCampaignsView(APIView):
+
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter('discount_code', openapi.IN_QUERY, description="Discount code to apply", type=openapi.TYPE_STRING),
+        ],
+        responses={
+            status.HTTP_200_OK: CampaignSerializer,
+            status.HTTP_404_NOT_FOUND: 'Invalid input.',
+            status.HTTP_500_INTERNAL_SERVER_ERROR: 'An unexpected error occurred.'
+        }
+    )
     def get(self, request):
         try:
             serializer = AvailableCampaignRequestSerializer(data=request.GET.dict())
