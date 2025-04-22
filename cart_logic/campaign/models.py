@@ -6,13 +6,11 @@ from campaign.constants import *
 
 class Campaign(models.Model):
 
-
-
     name = models.CharField(max_length=255)
-    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ENABLE)
-    sponsored_by = models.CharField(max_length=20, choices=CampaignSponsorTypeChoices.choices, default=CampaignSponsorTypeChoices.PLATFORM)
-    discount_on = models.CharField(max_length=20, choices=CampaignDiscountOnChoices.choices)
-    discount_type = models.CharField(max_length=20, choices = DiscountTypeChoices.choices)
+    status = models.CharField(max_length=25, choices=StatusChoices.choices, default=StatusChoices.ENABLE)
+    sponsored_by = models.CharField(max_length=25, choices=CampaignSponsorTypeChoices.choices, default=CampaignSponsorTypeChoices.PLATFORM)
+    discount_on = models.CharField(max_length=25, choices=CampaignDiscountOnChoices.choices)
+    discount_type = models.CharField(max_length=25, choices = DiscountTypeChoices.choices)
     discount_value = models.DecimalField(max_digits=10, decimal_places=2)
 
     start_date = models.DateTimeField()
@@ -28,6 +26,9 @@ class Campaign(models.Model):
 
     def has_expired(self):
         return timezone.now() > self.end_date or self.budget_consumed >= self.total_budget
+    
+    class Meta:
+        unique_together = ('status', 'name')
     
 
 

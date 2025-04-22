@@ -127,5 +127,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10  # You can set this to any default number
+    'PAGE_SIZE': 10,  # You can set this to any default number
+    "EXCEPTION_HANDLER": "campaign.api_exceptions.custom_exception_handler",
 }
