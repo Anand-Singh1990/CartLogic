@@ -2,7 +2,7 @@ from django.db import models
 
 class StatusChoices(models.TextChoices):
 
-    ENABLE = 'Active', 'active'
+    ACTIVE = 'Active', 'active'
     INACTIVE = 'inactive', 'Inactive'
     DELETED = 'deleted', 'Deleted'
 

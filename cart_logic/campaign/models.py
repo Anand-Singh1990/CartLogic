@@ -7,7 +7,7 @@ from campaign.constants import *
 class Campaign(models.Model):
 
     name = models.CharField(max_length=255)
-    status = models.CharField(max_length=25, choices=StatusChoices.choices, default=StatusChoices.ENABLE)
+    status = models.CharField(max_length=25, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
     sponsored_by = models.CharField(max_length=25, choices=CampaignSponsorTypeChoices.choices, default=CampaignSponsorTypeChoices.PLATFORM)
     discount_on = models.CharField(max_length=25, choices=CampaignDiscountOnChoices.choices)
     discount_type = models.CharField(max_length=25, choices = DiscountTypeChoices.choices)

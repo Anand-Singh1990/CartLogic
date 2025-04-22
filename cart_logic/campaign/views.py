@@ -1,26 +1,21 @@
-from rest_framework import viewsets
-from campaign.models import Campaign
-from rest_framework.response import Response
-from campaign.serializers import CampaignSerializer
 from campaign.paginations import CampaignPagination
+from rest_framework import status, viewsets
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework import status
-
-from datetime import date
 from django.utils import timezone
 from django.contrib.auth.models import User
-from rest_framework import status, viewsets
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
+from datetime import date
+from campaign.constants import StatusChoices
 
 from .models import Campaign, DiscountApplication
 from .serializers import (
     ApplyDiscountSerializer,
     ApplyDiscountResponseSerializer,
     AvailableCampaignRequestSerializer,
-    CampaignSerializer,
+    CampaignSerializer
 )
-
-
 
 
 class CampaignViewSet(viewsets.ModelViewSet):
@@ -38,103 +33,129 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
 
 
-@api_view(["POST"])
-def apply_discount(request):
-    serializer = ApplyDiscountSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+class ApplyDiscountView(APIView):
+    def post(self, request):
+        try:
+            serializer = ApplyDiscountSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-    customer_id = serializer.validated_data["customer_id"]
-    cart_total = serializer.validated_data["cart_total"]
-    delivery_charge = serializer.validated_data["delivery_charge"]
+            customer_id = serializer.validated_data["customer_id"]
+            cart_total = serializer.validated_data["cart_total"]
+            delivery_charge = serializer.validated_data["delivery_charge"]
 
-    try:
-        customer = User.objects.get(id=customer_id)
-    except User.DoesNotExist:
-        return Response({"error": "Customer does not exist."}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                customer = User.objects.get(id=customer_id)
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "Customer does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-    today = date.today()
-    applications_today = DiscountApplication.objects.filter(
-        customer=customer,
-        created_at__date=today
-    ).count()
+            today = date.today()
+            applications_today = DiscountApplication.objects.filter(
+                customer=customer,
+                created_at__date=today
+            ).count()
 
-    active_campaigns = Campaign.objects.filter(
-        start_date__lte=timezone.now(),
-        end_date__gte=timezone.now(),
-        is_active=True,
-        target_customers=customer,
-    )
+            active_campaigns = Campaign.objects.filter(
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now(),
+                status=StatusChoices.ACTIVE,
+                target_customers_rel__customer=customer,
+            )
 
-    for campaign in active_campaigns:
-        # Calculate remaining budget dynamically
-        remaining_budget = campaign.total_budget - campaign.budget_consumed
+            for campaign in active_campaigns:
+                remaining_budget = campaign.total_budget - campaign.budget_consumed
+                if remaining_budget <= 0:
+                    continue
 
-        if remaining_budget <= 0:
-            continue
+                if applications_today >= campaign.max_usage_per_customer_per_day:
+                    continue
 
-        if applications_today >= campaign.max_usage_per_customer_per_day:
-            continue
+                if campaign.discount_type == "cart":
+                    discount = min(cart_total, campaign.discount_value)
+                else:  # delivery
+                    discount = min(delivery_charge, campaign.discount_value)
 
-        if campaign.discount_type == "cart":
-            discount = min(cart_total, campaign.discount_value)
-        else:  # "delivery"
-            discount = min(delivery_charge, campaign.discount_value)
+                final_amount = cart_total + delivery_charge - discount
 
-        final_amount = cart_total + delivery_charge - discount
+                DiscountApplication.objects.create(
+                    campaign=campaign,
+                    customer=customer,
+                    amount=discount
+                )
 
-        # Apply the discount
-        DiscountApplication.objects.create(
-            campaign=campaign,
-            customer=customer,
-            amount=discount
-        )
+                campaign.budget_consumed += discount
+                if campaign.budget_consumed >= campaign.total_budget:
+                    campaign.status = StatusChoices.INACTIVE
+                campaign.save()
 
-        campaign.budget_consumed += discount
-        if campaign.budget_consumed >= campaign.total_budget:
-            campaign.is_active = False
-        campaign.save()
+                response_data = {
+                    "success": True,
+                    "discount_applied": discount,
+                    "final_amount": final_amount,
+                    "campaign_id": campaign.id,
+                    "message": "Discount applied successfully"
+                }
 
-        response_data = {
-            "success": True,
-            "discount_applied": discount,
-            "final_amount": final_amount,
-            "campaign_id": campaign.id,
-            "message": "Discount applied successfully"
-        }
+                response_serializer = ApplyDiscountResponseSerializer(response_data)
+                return Response(response_serializer.data)
 
-        response_serializer = ApplyDiscountResponseSerializer(response_data)
-        return Response(response_serializer.data)
+            return Response(
+                {"success": False, "message": "No eligible campaigns found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-    return Response(
-        {"success": False, "message": "No eligible campaigns found."},
-        status=status.HTTP_404_NOT_FOUND
-    )
+        except ValidationError as ve:
+            return Response(
+                {"error": "Invalid input", "details": ve.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"error": "An unexpected error occurred", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
-@api_view(["POST"])
-def available_campaigns(request):
-    serializer = AvailableCampaignRequestSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+class AvailableCampaignsView(APIView):
+    def post(self, request):
+        try:
+            serializer = AvailableCampaignRequestSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-    customer_id = serializer.validated_data["customer_id"]
+            customer_id = serializer.validated_data["customer_id"]
 
-    try:
-        customer = User.objects.get(id=customer_id)
-    except User.DoesNotExist:
-        return Response({"error": "Customer does not exist."}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                customer = User.objects.get(id=customer_id)
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "Customer does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-    active_campaigns = Campaign.objects.filter(
-        start_date__lte=timezone.now(),
-        end_date__gte=timezone.now(),
-        is_active=True,
-        target_customers=customer,
-    )
+            active_campaigns = Campaign.objects.filter(
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now(),
+                status=StatusChoices.ACTIVE,
+                target_customers_rel__customer=customer,
+            )
 
-    eligible_campaigns = []
-    for campaign in active_campaigns:
-        remaining_budget = campaign.total_budget - campaign.budget_consumed
-        if remaining_budget > 0:
-            eligible_campaigns.append(campaign)
+            eligible_campaigns = [
+                campaign for campaign in active_campaigns
+                if (campaign.total_budget - campaign.budget_consumed) > 0
+            ]
 
-    serialized = CampaignSerializer(eligible_campaigns, many=True)
-    return Response(serialized.data)
+            serialized = CampaignSerializer(eligible_campaigns, many=True)
+            return Response(serialized.data)
+
+        except ValidationError as ve:
+            return Response(
+                {"error": "Invalid input", "details": ve.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"error": "An unexpected error occurred", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
