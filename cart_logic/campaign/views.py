@@ -40,8 +40,8 @@ class ApplyDiscountView(APIView):
 
     @swagger_auto_schema(request_body=ApplyDiscountSerializer,responses={
         status.HTTP_200_OK: ApplyDiscountResponseSerializer,
-            status.HTTP_400_BAD_REQUEST: 'No eligible campaigns found.',
-            status.HTTP_500_INTERNAL_SERVER_ERROR: 'An unexpected error occurred'
+        status.HTTP_400_BAD_REQUEST: 'No eligible campaigns found.',
+        status.HTTP_500_INTERNAL_SERVER_ERROR: 'An unexpected error occurred'
     })
     def post(self, request):
         try:
